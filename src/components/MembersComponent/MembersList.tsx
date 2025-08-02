@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Users, UserCheck, UserX, Mail } from 'lucide-react';
+import { Search, UserCheck, UserX, Mail } from 'lucide-react';
 import { Member } from '@/types/member';
 import { MemberCard } from './MemberCard';
 import { useState } from 'react';
@@ -31,9 +31,6 @@ export function MembersList({
   const inactiveMembers = filteredMembers.filter(m => m.status === 'inactive');
   const invitedMembers = filteredMembers.filter(m => m.status === 'invited');
   
-  // Only show active and inactive members in the main list
-  const visibleMembers = filteredMembers.filter(m => m.status !== 'invited');
-
   const renderMemberGrid = (membersList: Member[]) => (
     <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {membersList.map((member) => (

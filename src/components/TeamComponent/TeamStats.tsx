@@ -1,32 +1,45 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Clock, CheckCircle, XCircle } from 'lucide-react';
 
-export function TeamStats() {
+interface TeamStatsProps {
+  members: Array<{
+    id: string;
+    status: string;
+    // Add other member properties as needed
+  }>;
+}
+
+export function TeamStats({ members = [] }: TeamStatsProps) {
+  // Calculate stats based on members
+  const activeMembers = members.filter(member => member.status === 'active').length;
+  const onLeaveMembers = members.filter(member => member.status === 'on leave').length;
+  const inactiveMembers = members.filter(member => member.status === 'inactive').length;
+
   const stats = [
     {
       title: 'Total Members',
-      value: '24',
+      value: members.length.toString(),
       icon: Users,
       description: 'Across all departments',
       change: '+12% from last month',
     },
     {
       title: 'Active Now',
-      value: '18',
+      value: activeMembers.toString(),
       icon: CheckCircle,
       description: 'Currently working',
       change: '+3 from yesterday',
     },
     {
       title: 'On Leave',
-      value: '3',
+      value: onLeaveMembers.toString(),
       icon: Clock,
       description: 'Away from work',
       change: '2 scheduled returns',
     },
     {
       title: 'Inactive',
-      value: '3',
+      value: inactiveMembers.toString(),
       icon: XCircle,
       description: 'Not active',
       change: 'No change',

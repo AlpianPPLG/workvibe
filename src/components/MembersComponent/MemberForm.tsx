@@ -134,19 +134,32 @@ export function MemberForm({
   });
 
   // Auto-fill name from email when email changes and name is empty
-  const email = form.watch('email');
-  const name = form.watch('name');
+  const emailValue = form.watch('email');
+  const nameValue = form.watch('name');
   
   useEffect(() => {
-    if (!member && email && !name) {
+    if (!member && emailValue && !nameValue) {
       // Extract the part before @ and capitalize first letter of each word
-      const nameFromEmail = email.split('@')[0]
+      const nameFromEmail = emailValue.split('@')[0]
         .split(/[.\-_]/)
         .map(part => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ');
       form.setValue('name', nameFromEmail, { shouldValidate: true });
     }
-  }, [email, name, form, member]);
+  }, [emailValue, nameValue, form, member]);
+
+  // Auto-generate avatar URL when name or email changes
+  useEffect(() => {
+    const currentName = form.getValues('name');
+    const currentEmail = form.watch('email');
+    const currentAvatar = form.watch('avatar');
+    
+    if (!currentAvatar && (currentName || currentEmail)) {
+      const displayName = currentName || currentEmail.split('@')[0];
+      const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
+      form.setValue('avatar', avatarUrl);
+    }
+  }, [nameValue, emailValue, form]);
 
   const handleFormSubmit = async (values: FormSchema) => {
     if (isInvite) {

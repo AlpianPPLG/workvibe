@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { TeamHeader } from '@/components/TeamComponent/TeamHeader';
@@ -18,25 +18,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Pagination } from '@/components/ui/pagination';
 
 // Import types from the codebase
-import type { TeamMember as TeamMemberType } from '@/types/team';
-import type { MemberStatus, MemberRole } from '@/types/member';
-
-// Local TeamMember type that matches the expected shape for this component
-interface TeamMember extends Omit<Member, 'projects' | 'skills' | 'avatar'> {
-  projects: Array<{ id: string; name: string; role: string }>;
-  skills: string[];
-  avatar: string;
-  status: MemberStatus;
-  role: MemberRole;
-  position?: string;
-  department?: string;
-  phone?: string;
-  joinDate: string;
-  lastActive: string;
-  bio?: string;
-}
+import type { TeamMember } from '@/types/team';
+import type { MemberRole } from '@/types/member';
 
 // Convert Member to TeamMember format for the Teams page
 const toTeamMember = (member: Member): TeamMember => {
@@ -74,130 +60,52 @@ const toTeamMember = (member: Member): TeamMember => {
   };
 };
 
-// Default team members data
-const defaultTeamMembers: TeamMember[] = [
-  {
-    id: '1',
-    name: 'Alex Johnson',
-    email: 'alex.johnson@example.com',
-    role: 'admin',
-    status: 'active',
-    position: 'Project Manager',
-    department: 'Management',
-    phone: '+1 (555) 123-4567',
-    joinDate: '2023-01-15T00:00:00Z',
-    lastActive: new Date().toISOString(),
-    avatar: '/avatars/alex.jpg',
-    bio: 'Experienced project manager with 8+ years in the industry.',
-    skills: ['Project Management', 'Agile', 'Scrum'],
-    projects: [
-      { id: '1', name: 'Project Alpha', role: 'Project Manager' },
-      { id: '2', name: 'Project Beta', role: 'Lead' },
-      { id: '3', name: 'Project Gamma', role: 'Manager' },
-      { id: '4', name: 'Project Delta', role: 'Coordinator' },
-      { id: '5', name: 'Project Epsilon', role: 'Supervisor' }
-    ],
-  },
-  {
-    id: '2',
-    name: 'Sarah Williams',
-    email: 'sarah.w@example.com',
-    role: 'member',
-    status: 'active',
-    position: 'Frontend Developer',
-    department: 'Engineering',
-    phone: '+1 (555) 987-6543',
-    joinDate: '2023-03-22T00:00:00Z',
-    lastActive: new Date(Date.now() - 86400000).toISOString(),
-    avatar: '/avatars/sarah.jpg',
-    skills: ['React', 'TypeScript', 'Next.js'],
-    projects: [
-      { id: '1', name: 'Project Alpha', role: 'Frontend Lead' },
-      { id: '2', name: 'Project Beta', role: 'UI Developer' },
-      { id: '6', name: 'Project Zeta', role: 'React Developer' }
-    ],
-  },
-  {
-    id: '3',
-    name: 'Michael Brown',
-    email: 'michael.b@example.com',
-    role: 'guest',
-    status: 'inactive',
-    position: 'UX Designer',
-    department: 'Design',
-    phone: '+1 (555) 456-7890',
-    joinDate: '2023-02-10T00:00:00Z',
-    lastActive: new Date(Date.now() - 604800000).toISOString(),
-    avatar: '/avatars/michael.jpg',
-    bio: 'Passionate about creating intuitive user experiences.',
-    skills: ['Figma', 'UI/UX', 'Prototyping'],
-    projects: [
-      { id: '3', name: 'Project Gamma', role: 'UX Designer' },
-      { id: '7', name: 'Project Eta', role: 'UI/UX Specialist' }
-    ],
-  },
-];
-
 export default function TeamsPage() {
   const router = useRouter();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-  const [filters, setFilters] = useState<{
-    status?: string[];
-    role?: string[];
-    search?: string;
-  }>({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const { members: allMembers, addInvitedMember } = useTeamMembers();
   
-  // Use the shared team members hook
-  const { teamMembers, addMember } = useTeamMembers();
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9; // 3x3 grid
   
-  // Convert members to team members format
-  const allTeamMembers = teamMembers.length > 0 
-    ? teamMembers.map(toTeamMember) 
-    : defaultTeamMembers;
-
-  // Filter team members based on active filters
-  const filteredMembers = allTeamMembers.filter((member) => {
-    if (filters.status && filters.status.length > 0 && !filters.status.includes(member.status)) {
-      return false;
-    }
-    if (filters.role && filters.role.length > 0 && !filters.role.includes(member.role)) {
-      return false;
-    }
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      return (
-        member.name.toLowerCase().includes(searchLower) ||
-        member.email.toLowerCase().includes(searchLower) ||
-        (member.position?.toLowerCase().includes(searchLower) ?? false) ||
-        (member.department?.toLowerCase().includes(searchLower) ?? false) ||
-        member.skills.some((skill) => skill.toLowerCase().includes(searchLower))
-      );
-    }
-    return true;
-  });
-
-  const handleFilterChange = (newFilters: {
-    status?: string[];
-    role?: string[];
-    search?: string;
-  }) => {
-    setFilters(prev => ({
-      ...prev,
-      ...newFilters,
-    }));
+  // Filter and paginate members
+  const filteredMembers = allMembers.filter(member => 
+    member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    member.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    member.position?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  // Calculate pagination values
+  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedMembers = filteredMembers
+    .map(toTeamMember)
+    .slice(startIndex, startIndex + itemsPerPage);
+  
+  // Reset to first page when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+  
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-
-  // Handle member invitation
+  
+  // Handle member invitation - only shows in Teams page
   const handleInvite = async (values: { email: string; role: MemberRole }) => {
     try {
-      // Add the new member through our shared hook
-      // The addMember function will handle nickname generation and other defaults
-      await addMember({
+      // Add the invited member through our shared hook
+      // This will only appear in Teams page, not Members page
+      await addInvitedMember({
         name: values.email.split('@')[0],
         email: values.email,
         role: values.role,
-        status: 'invited',
         joinDate: new Date().toISOString(),
         lastActive: new Date().toISOString(),
         projects: [],
@@ -217,7 +125,7 @@ export default function TeamsPage() {
   };
 
   // Handle member view
-  const handleViewMember = (member: TeamMemberType) => {
+  const handleViewMember = (member: TeamMember) => {
     // Check for required fields
     if (!member.id || !member.name || !member.email || !member.role || !member.status) {
       console.error('Required member information is missing');
@@ -225,60 +133,67 @@ export default function TeamsPage() {
       return;
     }
 
-    // Convert to Member format first
-    const memberForProfile: Member = {
-      id: member.id,
-      name: member.name,
-      email: member.email,
-      role: member.role,
-      status: member.status,
-      position: member.position || '',
-      department: member.department || '',
-      phone: member.phone || '',
-      joinDate: member.joinDate || new Date().toISOString(),
-      lastActive: member.lastActive || new Date().toISOString(),
-      avatar: member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}`,
-      bio: member.bio || '',
-      skills: member.skills || [],
-      projects: member.projects // This will be a number in TeamMemberType
-    };
-    
-    // Convert to TeamMember using the existing helper function
-    const teamMember = toTeamMember(memberForProfile);
-    setSelectedMember(teamMember);
+    setSelectedMember(member);
   };
+
+  // Handle Add Members button click - navigate to Members page with query parameter
+  const handleAddMembersClick = useCallback(() => {
+    // Navigate to members page with from=teams parameter
+    router.push('/members?addMember=true&from=teams');
+  }, [router]);
 
   // Save team members to localStorage whenever they change
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('teamMembers', JSON.stringify(allTeamMembers));
+      localStorage.setItem('teamMembers', JSON.stringify(allMembers));
     }
-  }, [allTeamMembers]);
+  }, [allMembers]);
 
   return (
     <div className="container mx-auto px-4 py-8">
       <TeamHeader 
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
         onInviteClick={() => setIsInviteDialogOpen(true)}
-        onAddMembersClick={() => router.push('/members?addMember=true')}
-        onFilterChange={handleFilterChange}
+        onAddMembersClick={handleAddMembersClick}
       />
-      <div className="mt-8 grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2">
-          <TeamGrid 
-            members={filteredMembers.map(m => ({
-              ...m,
-              // Ensure all required TeamMemberType fields are present
-              projects: m.projects || 0,
-              skills: m.skills || [],
-              avatar: m.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=random`
-            })) as TeamMemberType[]} 
-            onViewProfile={handleViewMember} 
-          />
+      
+      {/* Top Section: Team Overview and Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 border-b pb-8">
+        {/* Team Overview - Takes 2/3 width on large screens */}
+        <div className="lg:col-span-2">
+          <h2 className="text-xl font-semibold mb-4"></h2>
+          <div className="border rounded-lg p-4">
+            <TeamStats members={filteredMembers} />
+          </div>
         </div>
-        <div className="space-y-6">
-          <TeamStats />
-          <TeamActivity />
+        
+        {/* Recent Activity - Takes 1/3 width on large screens */}
+        <div className="lg:col-span-1">
+          <h2 className="text-xl font-semibold mb-4"></h2>
+          <div className="border rounded-lg p-4">
+            <TeamActivity />
+          </div>
         </div>
+      </div>
+
+      {/* Team Grid - Full width below */}
+      <div>
+        <TeamGrid 
+          members={paginatedMembers} 
+          onViewProfile={handleViewMember} 
+        />
+        
+        {/* Pagination */}
+        {filteredMembers.length > itemsPerPage && (
+          <div className="mt-6 flex justify-center">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          </div>
+        )}
       </div>
 
       {/* Invite Member Dialog */}
@@ -291,7 +206,7 @@ export default function TeamsPage() {
             </DialogDescription>
           </DialogHeader>
           <InviteMemberForm
-            existingMembers={allTeamMembers}
+            existingMembers={allMembers}
             onSubmit={handleInvite}
             onCancel={() => setIsInviteDialogOpen(false)}
             isLoading={false}

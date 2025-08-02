@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Filter, Users, UserPlus, X } from 'lucide-react';
+import { Search, Filter, UserPlus, X, Plus } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,24 +12,18 @@ type FilterOptions = {
 };
 
 interface TeamHeaderProps {
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
   onInviteClick: () => void;
   onAddMembersClick: () => void;
-  onFilterChange: (filters: { status?: string[]; role?: string[]; search?: string }) => void;
 }
 
-export function TeamHeader({ onInviteClick, onAddMembersClick, onFilterChange }: TeamHeaderProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+export function TeamHeader({ searchTerm, onSearchChange, onInviteClick, onAddMembersClick }: TeamHeaderProps) {
   const [filters, setFilters] = useState<FilterOptions>({ status: [], role: [] });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const statusOptions = ['active', 'inactive', 'invited', 'away', 'on leave'];
   const roleOptions = ['admin', 'member', 'guest'];
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    onFilterChange({ search: value });
-  };
 
   const handleFilterChange = (type: 'status' | 'role', value: string) => {
     const newFilters = { ...filters };
@@ -41,17 +35,12 @@ export function TeamHeader({ onInviteClick, onAddMembersClick, onFilterChange }:
     }
     
     setFilters(newFilters);
-    onFilterChange({
-      status: newFilters.status.length ? newFilters.status : undefined,
-      role: newFilters.role.length ? newFilters.role : undefined,
-      search: searchTerm || undefined
-    });
+    onSearchChange('');
   };
 
   const clearFilters = () => {
     setFilters({ status: [], role: [] });
-    setSearchTerm('');
-    onFilterChange({});
+    onSearchChange('');
   };
 
   const hasActiveFilters = filters.status.length > 0 || filters.role.length > 0;
@@ -71,7 +60,7 @@ export function TeamHeader({ onInviteClick, onAddMembersClick, onFilterChange }:
             placeholder="Search team members..."
             className="w-full pl-8 sm:w-[200px] md:w-[300px]"
             value={searchTerm}
-            onChange={handleSearch}
+            onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
         <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
@@ -152,14 +141,14 @@ export function TeamHeader({ onInviteClick, onAddMembersClick, onFilterChange }:
           className="h-10"
           onClick={onAddMembersClick}
         >
-          <UserPlus className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 h-4 w-4" />
           Add Members
         </Button>
         <Button 
           className="h-10"
           onClick={onInviteClick}
         >
-          <Users className="mr-2 h-4 w-4" />
+          <UserPlus className="mr-2 h-4 w-4" />
           Invite Member
         </Button>
       </div>
